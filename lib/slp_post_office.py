@@ -166,6 +166,8 @@ class SlpPostOfficeClient:
                 continue
             else:
                 for stamp in stamps:
+                    stamp['host'] = host
+                    stamp['rate'] = int(stamp['rate'])
                     tokenId = stamp["tokenId"]
                     if tokenId not in token_rates.keys():
                         token_rates[tokenId] = []
@@ -173,7 +175,8 @@ class SlpPostOfficeClient:
         
         for token in token_rates:
             sorted(token_rates[token], key=lambda i: i['rate'])
-        
+        for token in token_rates.keys():
+            token_rates[token] = self.postage_data[token_rates[token][0]['host']]
         self.optimized_rates = token_rates
 
     def ban_post_office(self, url):
