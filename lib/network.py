@@ -281,6 +281,7 @@ class Network(util.DaemonThread):
         self.slp_gs_host = None
         self.slp_validity_signal = None
         self.slp_validation_fetch_signal = None
+        self.slp_post_office_enabled = None
 
     def __del__(self):
         ''' NB: due to Network.INSTANCE keeping the singleton instance alive,

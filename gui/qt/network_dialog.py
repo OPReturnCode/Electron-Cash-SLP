@@ -467,6 +467,53 @@ class SlpGsServeListWidget(QTreeWidget):
         h.setSectionResizeMode(0, QHeaderView.Stretch)
         #h.setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
+
+class PostOfficeServeListWidget(QTreeWidget):
+    def __init__(self, parent):
+        QTreeWidget.__init__(self)
+        self.parent = parent
+        self.network = parent.network
+        self.setHeaderLabels([_('Post Office Server')])
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.create_menu)
+
+    def create_menu(self, position):
+        item = self.currentItem()
+        if not item:
+            return
+        menu = QMenu()
+        server = item.data(0, Qt.UserRole)
+        menu.exec_(self.viewport().mapToGlobal(position))
+
+    def keyPressEvent(self, event):
+        if event.key() in [ Qt.Key_F2, Qt.Key_Return ]:
+            item, col = self.currentItem(), self.currentColumn()
+            if item and col > -1:
+                self.on_activated(item, col)
+        else:
+            QTreeWidget.keyPressEvent(self, event)
+
+    def on_activated(self, item, column):
+        # on 'enter' we show the menu
+        pt = self.visualItemRect(item).bottomLeft()
+        pt.setX(50)
+        self.customContextMenuRequested.emit(pt)
+
+    def update(self):
+        self.clear()
+        self.addChild = self.addTopLevelItem
+        post_office_list = networks.net.POST_OFFICE_SERVERS
+        post_office_count = len(post_office_list)
+        for server in post_office_list:
+            if post_office_count > 0:
+                x = QTreeWidgetItem([server]) #, 'NA'])
+                x.setData(0, Qt.UserRole, server)
+                # x.setData(1, Qt.UserRole, server)
+                self.addTopLevelItem(x)
+        h = self.header()
+        h.setStretchLastSection(False)
+        h.setSectionResizeMode(0, QHeaderView.Stretch)
+
 class NetworkChoiceLayout(QObject, PrintError):
 
     def __init__(self, parent, network, config, wizard=False):
@@ -497,10 +544,12 @@ class NetworkChoiceLayout(QObject, PrintError):
         proxy_tab = ProxyTab()
         blockchain_tab = QWidget()
         slp_tab = QWidget()
+        post_office_tab = QWidget()
         tabs.addTab(blockchain_tab, _('Overview'))
         tabs.addTab(server_tab, _('Server'))
         tabs.addTab(proxy_tab, _('Proxy'))
         tabs.addTab(slp_tab, _('Tokens'))
+        tabs.addTab(post_office_tab, _('Post Office'))
 
         if wizard:
             tabs.setCurrentIndex(1)
@@ -642,6 +691,23 @@ class NetworkChoiceLayout(QObject, PrintError):
         self.slp_search_job_list_widget = SlpSearchJobListWidget(self)
         grid.addWidget(self.slp_search_job_list_widget, 4, 0, 1, 5)
 
+        # Post Office  Tab
+        grid = QGridLayout(post_office_tab)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel(_('Server') + ':'))
+        hbox.addStretch(1)
+        grid.addLayout(hbox, 1, 0)
+
+        self.use_post_office = QCheckBox(_('Enable Postage Protocol'))
+        self.use_post_office.setEnabled(self.config.is_modifiable('slp_post_office_enabled'))
+        self.use_post_office.clicked.connect(self.set_slp_post_office_enabled)
+        grid.addWidget(self.use_post_office, 2, 0, 1, 5)
+
+
+        self.post_office_list_widget = PostOfficeServeListWidget(self)
+        grid.addWidget(self.post_office_list_widget, 3, 0, 1, 5)
+
         # Blockchain Tab
         grid = QGridLayout(blockchain_tab)
         msg =  ' '.join([
@@ -774,6 +840,8 @@ class NetworkChoiceLayout(QObject, PrintError):
         self.nodes_list_widget.update(self.network)
         self.slp_gs_list_widget.update()
         self.slp_gs_server_host.setText(self.network.slp_gs_host)
+        self.post_office_list_widget.update()
+        self.use_post_office.setChecked(self.config.get('slp_post_office_enabled', False))
         self.slp_gs_enable_cb.setChecked(self.config.get('slp_validator_graphsearch_enabled', False))
         self.slp_search_job_list_widget.update()
 
@@ -872,6 +940,10 @@ class NetworkChoiceLayout(QObject, PrintError):
         self.network.slp_gs_host = server
         self.config.set_key('slp_gs_host', self.network.slp_gs_host)
         self.slp_gs_list_widget.update()
+
+    def set_slp_post_office_enabled(self):
+        active = self.use_post_office.isChecked()
+        self.config.set_key('slp_post_office_enabled', active)
 
     def set_proxy(self):
         host, port, protocol, proxy, auto_connect = self.network.get_parameters()
